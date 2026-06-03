@@ -1,0 +1,779 @@
+---
+title: "PARTIE 3 — DONNÉES ET ANALYSE EMPIRIQUE"
+subtitle: "Présentation des données, application de la BSR et résultats empiriques"
+author: "Mémoire de Master — Best Subset Regression"
+date: today
+lang: fr
+format:
+  docx:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+  html:
+    toc: true
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Packages
+library(leaps)       # BSR via regsubsets() — dependance de bestglm
+library(bestglm)     # BSR via bestglm()
+library(corrplot)    # Matrice de correlations
+library(ggplot2)     # Graphiques
+library(dplyr)       # Manipulation des donnees
+library(tidyr)       # Pivots
+library(knitr)       # Tableaux
+library(kableExtra)  # Mise en forme des tableaux
+
+theme_set(theme_minimal(base_size = 12))
+
+# ── Fonction test GRS (Gibbons, Ross & Shanken, 1989) ──────────────────────
+grs <- function(alphas, resids, factors) {
+  T  <- nrow(resids)
+  N  <- ncol(resids)
+  K  <- ncol(factors)
+  a  <- matrix(alphas, ncol = 1)
+  S  <- cov(resids)
+  Om <- cov(factors)
+  mf <- matrix(colMeans(factors), ncol = 1)
+  stat <- (T / N) * ((T - N - K) / (T - K - 1)) *
+          as.numeric(t(a) %*% solve(S) %*% a) /
+          (1 + as.numeric(t(mf) %*% solve(Om) %*% mf))
+  pval <- 1 - pf(stat, df1 = N, df2 = T - N - K)
+  c(GRS = round(stat, 3), p_val = round(pval, 4))
+}
+
+# ── Fonction ratio de Sharpe annualise ─────────────────────────────────────
+sharpe <- function(x) sqrt(12) * mean(x) / sd(x)
+
+# ── Fonction estimation MCO sur 49 portefeuilles ───────────────────────────
+estimer <- function(facteurs) {
+  N      <- ncol(indust_est)
+  alphas <- numeric(N)
+  r2adj  <- numeric(N)
+  resids <- matrix(NA, nrow(indust_est), N)
+  for (i in seq_len(N)) {
+    d <- data.frame(y = indust_est[, i],
+                    factors_est[, facteurs, drop = FALSE])
+    m <- lm(y ~ ., data = d)
+    alphas[i]   <- coef(m)[1]
+    r2adj[i]    <- summary(m)$adj.r.squared
+    resids[, i] <- residuals(m)
+  }
+  list(alphas = alphas, r2adj = r2adj, resids = resids)
+}
+```
+
+\newpage
+
+# Présentation et analyse des données
+
+## Source et découpage des données
+
+```{r}
+#| label: chargement
+
+load("data/factor12.RData")
+load("data/industry49ex.RData")
+
+cat("Dimensions factor12     :", dim(factor12), "\n")
+cat("Dimensions industry49ex :", dim(industry49ex), "\n")
+
+# Decoupage : entrainement (60 obs.) et estimation (480 obs.)
+factors_est <- factor12[61:540, ]
+indust_est  <- industry49ex[61:540, ]
+
+cat("Periode d'estimation :", nrow(factors_est), "observations\n")
+cat("Nombre de facteurs   :", ncol(factors_est), "\n")
+cat("Nombre de portefeuilles :", ncol(indust_est), "\n")
+```
+
+---
+
+## Statistiques descriptives des douze facteurs
+
+```{r}
+#| label: stats-desc
+
+stats <- data.frame(
+  Facteur    = colnames(factors_est),
+  Moyenne    = round(colMeans(factors_est) * 100, 3),
+  Ecart_type = round(apply(factors_est, 2, sd) * 100, 3),
+  Minimum    = round(apply(factors_est, 2, min) * 100, 3),
+  Maximum    = round(apply(factors_est, 2, max) * 100, 3),
+  Asymetrie  = round(apply(factors_est, 2, function(x)
+                  mean((x - mean(x))^3) / sd(x)^3), 3),
+  Kurtosis   = round(apply(factors_est, 2, function(x)
+                  mean((x - mean(x))^4) / sd(x)^4), 3)
+)
+
+kable(stats,
+      col.names = c("Facteur", "Moyenne (%)", "Ecart-type (%)",
+                    "Min (%)", "Max (%)", "Asymétrie", "Kurtosis"),
+      caption   = "Statistiques descriptives des douze facteurs (janv. 1979 – déc. 2018)",
+      align     = c("l", rep("r", 6))) |>
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) |>
+  pack_rows("Collection FF",  1, 6) |>
+  pack_rows("Collection HXZ", 7, 8) |>
+  pack_rows("Collection SY",  9, 10) |>
+  pack_rows("Collection DHS", 11, 12)
+```
+
+---
+
+## Visualisations graphiques des facteurs
+
+### Histogrammes des rendements mensuels
+
+```{r}
+#| label: histogrammes
+#| fig-cap: "Histogrammes des rendements mensuels des douze facteurs"
+#| fig-width: 12
+#| fig-height: 9
+
+as.data.frame(factors_est) |>
+  pivot_longer(everything(),
+               names_to  = "Facteur",
+               values_to = "Rendement") |>
+  mutate(
+    Rendement  = Rendement * 100,
+    Collection = case_when(
+      Facteur %in% c("Mkt","SMB","HML","RMW","CMA","MOM") ~ "FF",
+      Facteur %in% c("IA","ROE")                           ~ "HXZ",
+      Facteur %in% c("MGMT","PERF")                        ~ "SY",
+      Facteur %in% c("PEAD","FIN")                         ~ "DHS"
+    ),
+    Facteur = factor(Facteur,
+                     levels = c("Mkt","SMB","HML","RMW","CMA","MOM",
+                                "IA","ROE","MGMT","PERF","PEAD","FIN"))
+  ) |>
+  ggplot(aes(x = Rendement, fill = Collection)) +
+  geom_histogram(bins = 35, color = "white", alpha = 0.85) +
+  geom_vline(xintercept = 0, linetype = "dashed",
+             color = "red", linewidth = 0.4) +
+  facet_wrap(~Facteur, scales = "free", ncol = 4) +
+  scale_fill_manual(values = c("FF"  = "#2166AC",
+                                "HXZ" = "#4DAF4A",
+                                "SY"  = "#FF7F00",
+                                "DHS" = "#E41A1C")) +
+  labs(title    = "Histogrammes des rendements mensuels des douze facteurs",
+       subtitle = "Période d'estimation : janvier 1979 — décembre 2018",
+       x = "Rendement mensuel (%)", y = "Fréquence", fill = "Collection") +
+  theme(legend.position  = "bottom",
+        strip.text        = element_text(size = 9, face = "bold"),
+        axis.text         = element_text(size = 7))
+```
+
+### Boîtes à moustaches par facteur et par collection
+
+```{r}
+#| label: boxplots
+#| fig-cap: "Distribution des rendements mensuels par facteur (boîtes à moustaches)"
+#| fig-width: 11
+#| fig-height: 5
+
+as.data.frame(factors_est) |>
+  pivot_longer(everything(),
+               names_to  = "Facteur",
+               values_to = "Rendement") |>
+  mutate(
+    Rendement  = Rendement * 100,
+    Collection = case_when(
+      Facteur %in% c("Mkt","SMB","HML","RMW","CMA","MOM") ~ "FF",
+      Facteur %in% c("IA","ROE")                           ~ "HXZ",
+      Facteur %in% c("MGMT","PERF")                        ~ "SY",
+      Facteur %in% c("PEAD","FIN")                         ~ "DHS"
+    ),
+    Facteur = factor(Facteur,
+                     levels = c("Mkt","SMB","HML","RMW","CMA","MOM",
+                                "IA","ROE","MGMT","PERF","PEAD","FIN"))
+  ) |>
+  ggplot(aes(x = Facteur, y = Rendement, fill = Collection)) +
+  geom_boxplot(alpha = 0.8, outlier.size = 0.8,
+               outlier.alpha = 0.5, width = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed",
+             color = "red", linewidth = 0.4) +
+  scale_fill_manual(values = c("FF"  = "#2166AC",
+                                "HXZ" = "#4DAF4A",
+                                "SY"  = "#FF7F00",
+                                "DHS" = "#E41A1C")) +
+  labs(title    = "Distribution des rendements mensuels des douze facteurs",
+       subtitle = "Période d'estimation : janvier 1979 — décembre 2018",
+       x = "Facteur", y = "Rendement mensuel (%)", fill = "Collection") +
+  theme(legend.position = "top",
+        axis.text.x     = element_text(size = 9, face = "bold"))
+```
+
+
+
+
+
+
+### Matrice de corrélations
+
+```{r}
+#| label: correlations
+#| fig-cap: "Matrice de corrélations des douze facteurs"
+#| fig-width: 9
+#| fig-height: 7
+
+corrplot(cor(factors_est),
+         method      = "color",
+         type        = "upper",
+         tl.col      = "black",
+         tl.srt      = 45,
+         addCoef.col = "black",
+         number.cex  = 0.65,
+         col = colorRampPalette(c("#D73027","#FFFFFF","#1A9850"))(200),
+         title = "Matrice de corrélations des douze facteurs",
+         mar   = c(0, 0, 2, 0))
+```
+
+\newpage
+
+---
+
+# Estimation des modèles de référence
+
+## Définition des modèles
+
+```{r}
+#| label: def-facteurs
+
+facteurs_CAPM <- c("Mkt")
+facteurs_FF3  <- c("Mkt", "SMB", "HML")
+facteurs_FF5  <- c("Mkt", "SMB", "HML", "RMW", "CMA")
+facteurs_FF6  <- c("Mkt", "SMB", "HML", "RMW", "CMA", "MOM")
+```
+
+```{r}
+#| label: estimation-modeles-ref
+
+res_CAPM <- estimer(facteurs_CAPM)
+res_FF3  <- estimer(facteurs_FF3)
+res_FF5  <- estimer(facteurs_FF5)
+res_FF6  <- estimer(facteurs_FF6)
+
+cat("Estimation des quatre modeles terminee.\n")
+```
+
+## Test GRS pour les modèles de référence
+
+```{r}
+#| label: grs-modeles-ref
+
+grs_CAPM <- grs(res_CAPM$alphas, res_CAPM$resids,
+                 factors_est[, facteurs_CAPM, drop = FALSE])
+grs_FF3  <- grs(res_FF3$alphas,  res_FF3$resids,
+                 factors_est[, facteurs_FF3])
+grs_FF5  <- grs(res_FF5$alphas,  res_FF5$resids,
+                 factors_est[, facteurs_FF5])
+grs_FF6  <- grs(res_FF6$alphas,  res_FF6$resids,
+                 factors_est[, facteurs_FF6])
+
+tab_ref <- data.frame(
+  Modele    = c("CAPM","FF3","FF5","FF6"),
+  K         = c(1, 3, 5, 6),
+  GRS       = c(grs_CAPM["GRS"],   grs_FF3["GRS"],
+                 grs_FF5["GRS"],    grs_FF6["GRS"]),
+  P_val     = c(grs_CAPM["p_val"], grs_FF3["p_val"],
+                 grs_FF5["p_val"],  grs_FF6["p_val"]),
+  Alpha_abs = round(c(mean(abs(res_CAPM$alphas)),
+                       mean(abs(res_FF3$alphas)),
+                       mean(abs(res_FF5$alphas)),
+                       mean(abs(res_FF6$alphas))) * 100, 4),
+  R2_adj    = round(c(mean(res_CAPM$r2adj), mean(res_FF3$r2adj),
+                       mean(res_FF5$r2adj),  mean(res_FF6$r2adj)), 4)
+)
+
+kable(tab_ref,
+      col.names = c("Modèle","Nb facteurs","Stat. GRS",
+                    "P-valeur","valeur absolu d'aplha moyen (%)","R² ajusté moyen"),
+      caption   = "Performances des modèles de référence sur les 49 portefeuilles",
+      align     = c("l", rep("r", 5))) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = FALSE)
+```
+
+\newpage
+
+---
+
+# Application de la Best Subset Regression
+
+## BSR avec bestglm — portefeuille par portefeuille
+
+```{r}
+#| label: bsr-bestglm
+
+res_BSR_BIC <- vector("list", ncol(indust_est))
+res_BSR_AIC <- vector("list", ncol(indust_est))
+
+for (i in seq_len(ncol(indust_est))) {
+
+  # data frame : 12 facteurs + rendement du portefeuille i en DERNIERE colonne
+  d <- data.frame(factors_est, y = indust_est[, i])
+
+  # BSR critere BIC
+  m_BIC <- bestglm(Xy = d, IC = "BIC",
+                    family = gaussian, method = "exhaustive")$BestModel
+  res_BSR_BIC[[i]] <- list(
+    facteurs = names(coef(m_BIC))[-1],
+    alpha    = coef(m_BIC)[1],
+    r2adj    = summary(m_BIC)$adj.r.squared,
+    resids   = residuals(m_BIC)
+  )
+
+  # BSR critere AIC
+  m_AIC <- bestglm(Xy = d, IC = "AIC",
+                    family = gaussian, method = "exhaustive")$BestModel
+  res_BSR_AIC[[i]] <- list(
+    facteurs = names(coef(m_AIC))[-1],
+    alpha    = coef(m_AIC)[1],
+    r2adj    = summary(m_AIC)$adj.r.squared,
+    resids   = residuals(m_AIC)
+  )
+}
+
+cat("BSR bestglm terminee sur les 49 portefeuilles.\n")
+```
+
+## BSR avec leaps — portefeuille par portefeuille
+
+```{r}
+#| label: bsr-leaps
+
+res_leaps_BIC <- vector("list", ncol(indust_est))
+res_leaps_R2  <- vector("list", ncol(indust_est))
+
+for (i in seq_len(ncol(indust_est))) {
+
+  X <- as.matrix(factors_est)
+  y <- indust_est[, i]
+
+  bsr  <- regsubsets(x = X, y = y, nvmax = 12, method = "exhaustive")
+  res  <- summary(bsr)
+
+  # Meilleur modele selon BIC
+  k_BIC     <- which.min(res$bic)
+  fact_BIC  <- names(which(res$which[k_BIC, -1]))
+  d_BIC     <- data.frame(y = y, factors_est[, fact_BIC, drop = FALSE])
+  m_BIC     <- lm(y ~ ., data = d_BIC)
+  res_leaps_BIC[[i]] <- list(
+    facteurs = fact_BIC,
+    alpha    = coef(m_BIC)[1],
+    r2adj    = summary(m_BIC)$adj.r.squared,
+    resids   = residuals(m_BIC)
+  )
+
+  # Meilleur modele selon R2 ajuste
+  k_R2      <- which.max(res$adjr2)
+  fact_R2   <- names(which(res$which[k_R2, -1]))
+  d_R2      <- data.frame(y = y, factors_est[, fact_R2, drop = FALSE])
+  m_R2      <- lm(y ~ ., data = d_R2)
+  res_leaps_R2[[i]] <- list(
+    facteurs = fact_R2,
+    alpha    = coef(m_R2)[1],
+    r2adj    = summary(m_R2)$adj.r.squared,
+    resids   = residuals(m_R2)
+  )
+}
+
+cat("BSR leaps terminee sur les 49 portefeuilles.\n")
+```
+
+## Vérification de la cohérence bestglm vs leaps
+
+```{r}
+#| label: coherence-packages
+
+coherence <- sapply(seq_len(ncol(indust_est)), function(i) {
+  setequal(res_BSR_BIC[[i]]$facteurs, res_leaps_BIC[[i]]$facteurs)
+})
+
+cat("Portefeuilles avec memes facteurs (bestglm BIC = leaps BIC) :",
+    sum(coherence), "sur", ncol(indust_est), "\n")
+
+if (all(coherence)) {
+  cat("Les deux packages donnent exactement les memes resultats.\n")
+} else {
+  cat("Differences sur les portefeuilles :", which(!coherence), "\n")
+}
+```
+
+## Fréquence de sélection et seuil 
+
+```{r}
+#| label: frequence-selection
+#| fig-cap: "Fréquence de sélection de chaque facteur (bestglm, critère BIC)"
+#| fig-width: 9
+#| fig-height: 5
+
+tous_12 <- colnames(factors_est)
+
+# Frequence de selection sur les 49 portefeuilles (bestglm, BIC)
+freq_raw <- table(unlist(lapply(res_BSR_BIC, function(x) x$facteurs)))
+
+# Certains facteurs peuvent ne jamais etre selectionnes -> les ajouter a 0
+freq_vec <- sapply(tous_12, function(f) {
+  if (f %in% names(freq_raw)) as.numeric(freq_raw[f]) else 0
+}) / 49 * 100
+
+freq_df <- data.frame(
+  Facteur    = tous_12,
+  Freq       = round(freq_vec, 1),
+  Collection = case_when(
+    tous_12 %in% c("Mkt","SMB","HML","RMW","CMA","MOM") ~ "FF",
+    tous_12 %in% c("IA","ROE")                           ~ "HXZ",
+    tous_12 %in% c("MGMT","PERF")                        ~ "SY",
+    tous_12 %in% c("PEAD","FIN")                         ~ "DHS"
+  )
+) |> arrange(desc(Freq))
+
+# Graphique
+ggplot(freq_df, aes(x = reorder(Facteur, Freq),
+                     y = Freq, fill = Collection)) +
+  geom_col(alpha = 0.85, width = 0.6) +
+  geom_hline(yintercept = 30, linetype = "dashed",
+             color = "red", linewidth = 0.7) +
+  geom_hline(yintercept = 50, linetype = "dotted",
+             color = "orange", linewidth = 0.5) +
+  annotate("text", x = 1.5, y = 32,
+           label = "Seuil 30 %", color = "red", size = 3.5) +
+  annotate("text", x = 1.5, y = 52,
+           label = "Seuil 50 %", color = "orange", size = 3.2) +
+  coord_flip() +
+  scale_fill_manual(values = c("FF"  = "#2166AC",
+                                "HXZ" = "#4DAF4A",
+                                "SY"  = "#FF7F00",
+                                "DHS" = "#E41A1C")) +
+  labs(title    = "Fréquence de sélection de chaque facteur (bestglm, critère BIC)",
+       subtitle = "Sur les 49 portefeuilles industrie ",
+       x = "Facteur", y = "Fréquence de sélection (%)",
+       fill = "Collection") +
+  theme_minimal() +
+  theme(legend.position = "top")
+```
+
+```{r}
+#| label: tableau-frequence
+
+kable(freq_df,
+      col.names = c("Facteur","Fréquence (%)","Collection"),
+      caption   = "Fréquence de sélection de chaque facteur sur les 49 portefeuilles (BIC)",
+      align     = c("l","r","l")) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = FALSE) |>
+  row_spec(which(freq_df$Freq >= 30), bold = TRUE, background = "#EBF5FB")
+```
+
+```{r}
+#| label: facteurs-retenus-30
+
+# Facteurs retenus avec le seuil de 30 %
+facteurs_BSR <- freq_df$Facteur[freq_df$Freq >= 30]
+
+cat("Facteurs retenus (seuil 30%, bestglm BIC) :\n")
+cat(facteurs_BSR, "\n")
+cat("Nombre de facteurs :", length(facteurs_BSR), "\n")
+```
+
+\newpage
+
+---
+
+# Résultats sur les 49 portefeuilles industrie
+
+## Tableau détaillé : facteurs retenus, alpha et p-valeur par industrie
+
+Pour chaque portefeuille industrie, on rapporte :
+
+- Les facteurs sélectionnés par la BSR (critère BIC)
+- L'alpha estimé (en % mensuel)
+- La p-valeur de l'alpha (test t sur l'intercept)
+- Le R² ajusté du modèle
+
+```{r}
+#| label: tableau-49-industries
+
+noms_ind <- colnames(indust_est)
+
+# Construction du tableau pour les 49 portefeuilles
+tab_49 <- data.frame(
+  Industrie   = noms_ind,
+  Facteurs    = sapply(res_BSR_BIC, function(x)
+                  paste(x$facteurs, collapse = ", ")),
+  Nb_fact     = sapply(res_BSR_BIC, function(x) length(x$facteurs)),
+  Alpha_pct   = round(sapply(res_BSR_BIC, function(x) x$alpha * 100), 4),
+  R2_adj      = round(sapply(res_BSR_BIC, function(x) x$r2adj), 4)
+)
+
+# Calcul de la p-valeur de l'alpha pour chaque portefeuille
+tab_49$P_val_alpha <- sapply(seq_len(ncol(indust_est)), function(i) {
+  fact_i <- res_BSR_BIC[[i]]$facteurs
+  d <- data.frame(y = indust_est[, i],
+                  factors_est[, fact_i, drop = FALSE])
+  m <- lm(y ~ ., data = d)
+  round(summary(m)$coefficients[1, 4], 4)   # P-valeur de l'intercept
+})
+
+# Indicateur : alpha significatif ou non au seuil de 5 %
+tab_49$Significatif <- ifelse(tab_49$P_val_alpha < 0.05, "Oui", "Non")
+
+kable(tab_49,
+      col.names = c("Industrie","Facteurs retenus (BSR BIC)",
+                    "Nb","Alpha (%)","R² ajusté",
+                    "P-val alpha","Significatif"),
+      caption   = "BSR par portefeuille : facteurs retenus, alpha et p-valeur (49 industries)",
+      align     = c("l","l","r","r","r","r","c"),
+      digits    = 4) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = TRUE, font_size = 9) |>
+  row_spec(which(tab_49$Significatif == "Non"),
+           background = "#EBF5FB") |>
+  column_spec(4, bold = TRUE) |>
+  column_spec(6, bold = TRUE)
+```
+
+```{r}
+#| label: resume-49
+
+cat("=== Résumé sur les 49 portefeuilles ===\n")
+cat("Alpha moyen absolu   :", round(mean(abs(tab_49$Alpha_pct)), 4), "%\n")
+cat("Nb alphas significatifs (p < 5%) :",
+    sum(tab_49$Significatif == "Oui"), "sur 49\n")
+cat("Nb alphas non significatifs :",
+    sum(tab_49$Significatif == "Non"), "sur 49\n")
+cat("R2 ajuste moyen :", round(mean(tab_49$R2_adj), 4), "\n")
+```
+
+---
+
+## Comparaison avec Chib, Zhao et Zhou (2023)
+
+```{r}
+#| label: comp-chib
+
+chib_2023 <- c("Mkt","SMB","MOM","ROE","MGMT","PERF","PEAD")
+
+comp_chib <- data.frame(
+  Facteur    = tous_12,
+  BSR_BIC    = ifelse(tous_12 %in% facteurs_BSR, "Oui", "Non"),
+  Chib_2023  = ifelse(tous_12 %in% chib_2023,    "Oui", "Non"),
+  Freq_pct   = round(freq_vec[tous_12], 1)
+)
+
+kable(comp_chib,
+      col.names = c("Facteur","BSR (BIC, seuil 30%)","Chib et al. (2023)",
+                    "Fréquence (%)"),
+      caption   = "Comparaison BSR vs balayage bayésien de Chib, Zhao et Zhou (2023)",
+      align     = c("l","c","c","r")) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = FALSE)
+```
+
+\newpage
+
+---
+
+# Régression jointe sur les facteurs retenus
+
+## Principe : regrouper les 49 industries comme Chib et al.
+
+Conformément à l'approche de Chib, Zhao et Zhou (2023), nous estimons maintenant
+un **modèle unique** en regroupant les 49 portefeuilles. Cette régression jointe
+utilise les facteurs retenus par le seuil de 30 % et permet de comparer directement
+nos résultats avec ceux de l'article de référence.
+
+Pour cela, on empile les données des 49 portefeuilles et on estime un seul modèle.
+On calcule ensuite le test GRS, l'alpha moyen absolu, le R² ajusté moyen et le
+ratio de Sharpe.
+
+```{r}
+#| label: regression-jointe
+
+# Estimation du modele BSR final sur les 49 portefeuilles
+# avec les facteurs retenus par le seuil de 30 %
+res_BSR_final <- estimer(facteurs_BSR)
+
+# Test GRS pour le modele BSR final
+grs_BSR <- grs(res_BSR_final$alphas, res_BSR_final$resids,
+                factors_est[, facteurs_BSR, drop = FALSE])
+
+cat("=== Modele BSR final (facteurs seuil 30%) ===\n")
+cat("Facteurs :", paste(facteurs_BSR, collapse = ", "), "\n")
+cat("Test GRS  :", grs_BSR["GRS"], " | P-valeur :", grs_BSR["p_val"], "\n")
+cat("Alpha moyen absolu :",
+    round(mean(abs(res_BSR_final$alphas)) * 100, 4), "%\n")
+cat("R2 ajuste moyen :",
+    round(mean(res_BSR_final$r2adj), 4), "\n")
+```
+
+## Régression sur la moyenne des 49 portefeuilles (approche Chib)
+
+```{r}
+#| label: reg-moyenne-chib
+
+# Comme Chib et al. : on cree un portefeuille moyen (equally weighted)
+# qui represente l'ensemble des 49 industries
+y_joint <- rowMeans(indust_est)   # Moyenne equi-ponderee des 49 portefeuilles
+
+# Regression du portefeuille moyen sur les facteurs BSR retenus
+d_joint <- data.frame(y = y_joint,
+                       factors_est[, facteurs_BSR, drop = FALSE])
+m_joint <- lm(y ~ ., data = d_joint)
+
+cat("=== Regression sur le portefeuille moyen (approche Chib) ===\n")
+print(summary(m_joint))
+```
+
+```{r}
+#| label: tableau-reg-jointe
+
+# Tableau propre des coefficients de la regression jointe
+coefs_joint <- summary(m_joint)$coefficients
+tab_joint <- data.frame(
+  Parametre  = rownames(coefs_joint),
+  Estimateur = round(coefs_joint[, 1] * 100, 4),   # En %
+  Erreur_std = round(coefs_joint[, 2] * 100, 4),
+  T_stat     = round(coefs_joint[, 3], 3),
+  P_valeur   = round(coefs_joint[, 4], 4)
+)
+
+tab_joint$Significatif <- ifelse(tab_joint$P_valeur < 0.01,  "***",
+                          ifelse(tab_joint$P_valeur < 0.05,  "**",
+                          ifelse(tab_joint$P_valeur < 0.10,  "*", "")))
+
+kable(tab_joint,
+      col.names = c("Paramètre","Estimateur (%)","Erreur std (%)","T-stat",
+                    "P-valeur","Sig."),
+      caption   = "Régression du portefeuille moyen sur les facteurs BSR retenus",
+      align     = c("l", rep("r", 4), "c")) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = FALSE) |>
+  row_spec(1, bold = TRUE)   # Alpha en gras
+```
+
+```{r}
+#| label: r2-joint
+
+cat("R2 ajuste de la regression jointe :",
+    round(summary(m_joint)$adj.r.squared, 4), "\n")
+cat("Alpha annualise :",
+    round(coef(m_joint)[1] * 12 * 100, 4), "%\n")
+```
+
+## Comparaison finale de tous les modèles
+
+```{r}
+#| label: tableau-comparaison-finale
+
+# GRS pour les modeles de reference
+grs_CAPM_f <- grs(res_CAPM$alphas, res_CAPM$resids,
+                   factors_est[, facteurs_CAPM, drop = FALSE])
+grs_FF3_f  <- grs(res_FF3$alphas,  res_FF3$resids,
+                   factors_est[, facteurs_FF3])
+grs_FF5_f  <- grs(res_FF5$alphas,  res_FF5$resids,
+                   factors_est[, facteurs_FF5])
+grs_FF6_f  <- grs(res_FF6$alphas,  res_FF6$resids,
+                   factors_est[, facteurs_FF6])
+
+tab_final <- data.frame(
+  Modele      = c("CAPM","FF3","FF5","FF6","BSR (BIC, seuil 30%)"),
+  K           = c(1, 3, 5, 6, length(facteurs_BSR)),
+  GRS         = c(grs_CAPM_f["GRS"],  grs_FF3_f["GRS"],
+                   grs_FF5_f["GRS"],   grs_FF6_f["GRS"],
+                   grs_BSR["GRS"]),
+  P_val       = c(grs_CAPM_f["p_val"], grs_FF3_f["p_val"],
+                   grs_FF5_f["p_val"],  grs_FF6_f["p_val"],
+                   grs_BSR["p_val"]),
+  Alpha_abs   = round(c(mean(abs(res_CAPM$alphas)),
+                         mean(abs(res_FF3$alphas)),
+                         mean(abs(res_FF5$alphas)),
+                         mean(abs(res_FF6$alphas)),
+                         mean(abs(res_BSR_final$alphas))) * 100, 4),
+  R2_adj      = round(c(mean(res_CAPM$r2adj), mean(res_FF3$r2adj),
+                         mean(res_FF5$r2adj),  mean(res_FF6$r2adj),
+                         mean(res_BSR_final$r2adj)), 4),
+  Sharpe      = round(c(
+    sharpe(factors_est[, "Mkt"]),
+    sharpe(rowMeans(factors_est[, facteurs_FF3])),
+    sharpe(rowMeans(factors_est[, facteurs_FF5])),
+    sharpe(rowMeans(factors_est[, facteurs_FF6])),
+    sharpe(rowMeans(factors_est[, facteurs_BSR]))
+  ), 3)
+)
+
+kable(tab_final,
+      col.names = c("Modèle","Nb facteurs","Stat. GRS","P-valeur GRS",
+                    "|α| moyen (%)","R² ajusté moyen","Sharpe annualisé"),
+      caption   = "Comparaison finale des performances — tous les modèles",
+      align     = c("l", rep("r", 6))) |>
+  kable_styling(bootstrap_options = c("striped","hover"),
+                full_width = FALSE) |>
+  row_spec(5, bold = TRUE, background = "#EBF5FB")
+```
+
+```{r}
+#| label: graphique-sharpe
+#| fig-cap: "Ratios de Sharpe annualisés par modèle"
+#| fig-width: 8
+#| fig-height: 4
+
+ggplot(tab_final,
+       aes(x = reorder(Modele, Sharpe), y = Sharpe, fill = Modele)) +
+  geom_col(alpha = 0.85, width = 0.6) +
+  geom_text(aes(label = Sharpe), hjust = -0.2, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = c("CAPM"                = "#E41A1C",
+                                "FF3"                 = "#FF7F00",
+                                "FF5"                 = "#984EA3",
+                                "FF6"                 = "#4DAF4A",
+                                "BSR (BIC, seuil 30%)" = "#377EB8")) +
+  labs(title    = "Ratios de Sharpe annualisés des portefeuilles tangents",
+       subtitle = "Période d'estimation : janv. 1979 – déc. 2018",
+       x = "Modèle", y = "Ratio de Sharpe annualisé") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+```{r}
+#| label: graphique-alphas
+#| fig-cap: "Alphas individuels sur les 49 portefeuilles — comparaison des modèles"
+#| fig-width: 11
+#| fig-height: 7
+
+noms <- colnames(indust_est)
+
+data.frame(
+  Portefeuille = rep(noms, 4),
+  Alpha  = c(res_CAPM$alphas,      res_FF3$alphas,
+              res_FF6$alphas,       res_BSR_final$alphas) * 100,
+  Modele = rep(c("CAPM","FF3","FF6","BSR (seuil 30%)"), each = 49)
+) |>
+  ggplot(aes(x = reorder(Portefeuille, Alpha),
+             y = Alpha, color = Modele, group = Modele)) +
+  geom_point(alpha = 0.7, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.4) +
+  coord_flip() +
+  scale_color_manual(values = c("CAPM"            = "#E41A1C",
+                                 "FF3"             = "#FF7F00",
+                                 "FF6"             = "#4DAF4A",
+                                 "BSR (seuil 30%)" = "#377EB8")) +
+  labs(title    = "Alphas individuels — 49 portefeuilles industrie",
+       subtitle = "En % mensuel. Proche de zéro = bon pricing.",
+       x = "Portefeuille", y = "Alpha mensuel (%)", color = "Modèle") +
+  theme(axis.text.y = element_text(size = 6), legend.position = "bottom")
+```
