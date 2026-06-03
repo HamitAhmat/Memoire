@@ -1,9 +1,8 @@
 ---
 title: "PARTIE 3 — DONNÉES ET ANALYSE EMPIRIQUE"
 subtitle: "Présentation des données, application de la BSR et résultats empiriques"
-author: "Mémoire de Master — Best Subset Regression"
+author: "Hamit Ahmat Hamit"
 date: today
-lang: fr
 format:
   docx:
     toc: true
