@@ -111,4 +111,4 @@ Deux seuils de sélection sont appliqués :
 
 **Directeur de mémoire** : Monsieur Olivier Darné  
 **Formation** : Master Économétrie et Statistique Appliquées, parcours Économétrie Appliquée, Université de Nantes  
-**Année universitaire** : 2024-2025
+**Année universitaire** : 2025-2026
