@@ -1,16 +1,19 @@
 # Une alternative aux modèles financiers du CAPM et de Fama-French : l'approche du Best Subset Regression
 
-**[Lien vers le mémoire complet](#)**
-**[Lien vers la note de synthèse](#)**
-**[Lien vers le dashboard R Shiny](#)**
+[![Mémoire complet](https://img.shields.io/badge/Mémoire-PDF-blue?style=for-the-badge)](#)
+
+[![Note de synthèse](https://img.shields.io/badge/Note%20de%20synthèse-PDF-green?style=for-the-badge)](#)
+
+[![Dashboard R Shiny](https://img.shields.io/badge/Dashboard-R%20Shiny-orange?style=for-the-badge)](#)
+
 
 ---
 
 ## Contexte et objectifs
 
-Ce projet s'inscrit dans le cadre d'un mémoire de **Master 1 Économétrie et Statistique Appliquées** (parcours Économétrie Appliquées), Université de Nantes. L'objectif principal est d'appliquer la **Best Subset Regression (BSR)** comme méthode alternative de sélection de facteurs de risque en évaluation des actifs financiers, et d'évaluer sa capacité à identifier un modèle factoriel plus parcimonieux et plus performant que les modèles classiques (CAPM, Fama-French).
+Ce projet s'inscrit dans le cadre d'un mémoire de **Master 1 Économétrie et Statistique Appliquées** (parcours Économétrie Appliquée), Université de Nantes. L'objectif principal est d'appliquer la **Best Subset Regression (BSR)** comme méthode alternative de sélection de facteurs de risque en évaluation des actifs financiers, et d'évaluer sa capacité à identifier un modèle factoriel plus parcimonieux et plus performant que les modèles classiques (CAPM, Fama-French).
 
-La prolifération des facteurs de risque dans la littérature — phénomène qualifié de *factor zoo* par Cochrane (2011) — constitue le point de départ de ce travail. En explorant exhaustivement les **4 095 sous-modèles possibles** parmi 12 facteurs candidats, la BSR identifie automatiquement le modèle optimal et compare ses résultats avec ceux de l'approche bayésienne de Chib, Zhao et Zhou (2023, *Management Science*).
+La prolifération des facteurs de risque dans la littérature, phénomène qualifié de *factor zoo* par Cochrane (2011), constitue le point de départ de ce travail. En explorant exhaustivement les **4 095 sous-modèles possibles** parmi 12 facteurs candidats, la BSR identifie automatiquement le modèle optimal et compare ses résultats avec ceux de l'approche bayésienne de Chib, Zhao et Zhou (2023, *Management Science*).
 
 ---
 
@@ -20,7 +23,7 @@ La prolifération des facteurs de risque dans la littérature — phénomène qu
 
 Les données sont celles de **Chib, Zhao et Zhou (2023)**, mises à disposition par les auteurs :
 
-- **`factor12.RData`** : rendements mensuels des 12 facteurs de risque (janvier 1974 — décembre 2018)
+- **`factor12.RData`** : rendements mensuels des 12 facteurs de risque (janvier 1974 à décembre 2018)
 - **`industry49ex.RData`** : rendements excédentaires mensuels des 49 portefeuilles industrie de Kenneth R. French
 
 ### Variables clés
@@ -34,7 +37,7 @@ Les données sont celles de **Chib, Zhao et Zhou (2023)**, mises à disposition 
 
 ### Période et échantillons
 
-- **Période d'estimation** : Janvier 1979 — Décembre 2018 (T = 480 observations mensuelles)
+- **Période d'estimation** : Janvier 1979 à Décembre 2018 (T = 480 observations mensuelles)
 - **Actifs tests** : 49 portefeuilles industrie (Kenneth R. French)
 
 ---
@@ -47,7 +50,7 @@ Statistiques descriptives des 12 facteurs, matrice de corrélations et visualisa
 
 ### 2. Modèles de référence
 
-Quatre modèles sont estimés sur les 49 portefeuilles industrie par régression MCO et évalués par le **test GRS** (Gibbons, Ross & Shanken, 1989) :
+Quatre modèles sont estimés sur les 49 portefeuilles industrie par régression MCO et évalués par le **test GRS** (Gibbons, Ross et Shanken, 1989) :
 
 | Modèle | Facteurs |
 |--------|----------|
@@ -62,8 +65,8 @@ La BSR est appliquée **portefeuille par portefeuille** via les packages R `best
 
 Deux seuils de sélection sont appliqués :
 
-- **Seuil 50 %** : facteurs sélectionnés dans au moins la moitié des portefeuilles → **équivalent au FF3**
-- **Seuil 30 %** : facteurs sélectionnés dans au moins 30 % des portefeuilles → **8 facteurs retenus**
+- **Seuil 50 %** : facteurs sélectionnés dans au moins la moitié des portefeuilles, ce qui est équivalent au FF3
+- **Seuil 30 %** : facteurs sélectionnés dans au moins 30 % des portefeuilles, soit 8 facteurs retenus
 
 ---
 
@@ -71,11 +74,11 @@ Deux seuils de sélection sont appliqués :
 
 ### Performances comparées
 
-| Modèle | Nb fact. | Stat. GRS | P-valeur | |α| moyen (%) | Sharpe |
-|--------|----------|-----------|----------|----------------|--------|
+| Modèle | Nb fact. | Stat. GRS | P-valeur | \|α\| moyen (%) | Sharpe |
+|--------|----------|-----------|----------|-----------------|--------|
 | CAPM | 1 | 1.200 | 0.1763 | 0.192 | 0.513 |
-| FF3  | 3 | 1.776 | 0.0016 | 0.223 | 0.633 |
-| FF6  | 6 | 1.958 | 0.0002 | 0.254 | 1.153 |
+| FF3 | 3 | 1.776 | 0.0016 | 0.223 | 0.633 |
+| FF6 | 6 | 1.958 | 0.0002 | 0.254 | 1.153 |
 | **BSR (30 %)** | **8** | **1.808** | **0.0011** | **0.221** | **1.275** |
 
 ### Résultats clés
@@ -106,6 +109,6 @@ Deux seuils de sélection sont appliqués :
 
 ## Encadrement
 
-**Directeur de mémoire** : Monsieur Olivier Darné
-**Formation** : Master Économétrie et Statistique, parcours Économétrie Appliquées — Université de Nantes
+**Directeur de mémoire** : Monsieur Olivier Darné  
+**Formation** : Master Économétrie et Statistique Appliquées, parcours Économétrie Appliquée, Université de Nantes  
 **Année universitaire** : 2024-2025
