@@ -95,9 +95,9 @@ Deux seuils de sélection sont appliqués :
 
 ### Limites
 
-- **Biais de post-sélection** : les erreurs standard sont sous-estimées car le modèle est évalué sur les mêmes données que celles utilisées pour la sélection
-- **Absence d'évaluation hors échantillon** : les facteurs retenus sont optimaux pour 1979-2018 sans garantie sur des données futures
-- **Portée limitée** : analyse restreinte aux portefeuilles industrie du marché américain
+- **Biais de post-sélection** : les erreurs standard sont sous-estimées car le modèle est évalué sur les mêmes données que celles utilisées pour la sélection.
+- **Absence d'évaluation hors échantillon** : les facteurs retenus sont optimaux pour 1979-2018 sans garantie sur des données futures.
+- **Portée limitée** : analyse restreinte aux portefeuilles industrie du marché américain.
 
 ### Perspectives
 
