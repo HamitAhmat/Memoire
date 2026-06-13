@@ -1,8 +1,8 @@
 # Une alternative aux modèles financiers du CAPM et de Fama-French : l'approche du Best Subset Regression
 
-[![Mémoire complet](https://img.shields.io/badge/Mémoire-PDF-blue?style=for-the-badge)](#)
+[![Mémoire complet](https://img.shields.io/badge/Mémoire-PDF-blue?style=for-the-badge)](https://drive.google.com/file/d/169MuduUvEgCzGECEAyxr1bQOy_jedvno/view?usp=sharing)
 
-[![Note de synthèse](https://img.shields.io/badge/Note%20de%20synthèse-PDF-green?style=for-the-badge)](#)
+[![Note de synthèse](https://img.shields.io/badge/Note%20de%20synthèse-PDF-green?style=for-the-badge)](https://drive.google.com/file/d/1XfvP3PugV97Px7Dj_IWf7E-_5E271k1F/view?usp=sharing)
 
 [![Dashboard R Shiny](https://img.shields.io/badge/Dashboard-R%20Shiny-orange?style=for-the-badge)](#)
 
@@ -61,7 +61,7 @@ Quatre modèles sont estimés sur les 49 portefeuilles industrie par régression
 
 ### 3. Best Subset Regression
 
-La BSR est appliquée **portefeuille par portefeuille** via les packages R `bestglm` (critères AIC et BIC) et `leaps` (vérification de cohérence). La cohérence entre les deux packages est parfaite : **49/49 portefeuilles donnent les mêmes résultats**.
+La BSR est appliquée **portefeuille par portefeuille** via les packages R `bestglm` (critères BIC) et `leaps` (vérification de cohérence). La cohérence entre les deux packages est parfaite : **49/49 portefeuilles donnent les mêmes résultats**.
 
 Deux seuils de sélection sont appliqués :
 
