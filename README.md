@@ -11,7 +11,7 @@
 
 ## Contexte et objectifs
 
-Ce projet s'inscrit dans le cadre d'un mémoire de **Master 1 Économétrie et Statistique Appliquées** (parcours Économétrie Appliquée), Université de Nantes. L'objectif principal est d'appliquer la **Best Subset Regression (BSR)** comme méthode alternative de sélection de facteurs de risque en évaluation des actifs financiers, et d'évaluer sa capacité à identifier un modèle factoriel plus parcimonieux et plus performant que les modèles classiques (CAPM, Fama-French).
+Ce projet s'inscrit dans le cadre d'un mémoire de **Master 1 Économétrie et Statistique** (parcours Économétrie Appliquée), Université de Nantes. L'objectif principal est d'appliquer la **Best Subset Regression (BSR)** comme méthode alternative de sélection de facteurs de risque en évaluation des actifs financiers, et d'évaluer sa capacité à identifier un modèle factoriel plus parcimonieux et plus performant que les modèles classiques (CAPM, Fama-French).
 
 La prolifération des facteurs de risque dans la littérature, phénomène qualifié de *factor zoo* par Cochrane (2011), constitue le point de départ de ce travail. En explorant exhaustivement les **4 095 sous-modèles possibles** parmi 12 facteurs candidats, la BSR identifie automatiquement le modèle optimal et compare ses résultats avec ceux de l'approche bayésienne de Chib, Zhao et Zhou (2023, *Management Science*).
 
@@ -110,5 +110,5 @@ Deux seuils de sélection sont appliqués :
 ## Encadrement
 
 **Directeur de mémoire** : Monsieur Olivier Darné  
-**Formation** : Master Économétrie et Statistique Appliquées, parcours Économétrie Appliquée, Université de Nantes  
+**Formation** : Master Économétrie et Statistique, parcours Économétrie Appliquée, Université de Nantes  
 **Année universitaire** : 2025-2026
