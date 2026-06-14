@@ -4,7 +4,7 @@
 
 [![Note de synthèse](https://img.shields.io/badge/Note%20de%20synthèse-PDF-green?style=for-the-badge)](https://drive.google.com/file/d/1XfvP3PugV97Px7Dj_IWf7E-_5E271k1F/view?usp=sharing)
 
-[![Dashboard R Shiny](https://img.shields.io/badge/Dashboard-R%20Shiny-orange?style=for-the-badge)](#)
+[![Dashboard R Shiny](https://img.shields.io/badge/Dashboard-R%20Shiny-orange?style=for-the-badge)](https://hamit.shinyapps.io/Memoire/)
 
 
 ---
@@ -87,7 +87,7 @@ Deux seuils de sélection sont appliqués :
 - Au seuil de 30 %, **5 facteurs sur 8** convergent avec le modèle optimal de Chib et al. (2023) : Mkt, SMB, MOM, MGMT et PERF
 - La régression sur le portefeuille moyen équipondéré produit un **R² ajusté de 0,9638** avec un alpha annualisé non significatif (-0,964 %, p-valeur = 0,072)
 
-> 📊 **Accéder au dashboard interactif** : [Lien R Shiny](#)
+> 📊 **Accéder au dashboard interactif** : [Lien R Shiny](https://hamit.shinyapps.io/Memoire/)
 
 ---
 
