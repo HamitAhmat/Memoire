@@ -46,7 +46,7 @@ Les données sont celles de **Chib, Zhao et Zhou (2023)**, mises à disposition 
 
 ### 1. Analyse exploratoire
 
-Statistiques descriptives des 12 facteurs, matrice de corrélations et visualisation des rendements cumulés par collection.
+Statistiques descriptives des 12 facteurs, matrice de corrélations et visualisation des box-plots par collection.
 
 ### 2. Modèles de référence
 
